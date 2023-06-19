@@ -1,0 +1,111 @@
+module A1 where
+
+import Prelude
+
+-- a)
+rotateN :: Int -> [a] -> [a]
+rotateN i l =
+    case l of
+        []   -> []
+        x:xs -> if i > 0 then rotateN (i-1) (xs ++ [x]) else x:xs
+
+-- b)
+deleteKey :: Eq a => a -> [(a,b)] -> [(a,b)]
+deleteKey e l =
+    case l of 
+        []       -> error "nothing to delete"
+        [(x,y)]  -> if x == e then [] else [(x,y)]
+        (x,y):xs -> if x == e then deleteKey e xs else (x,y) : deleteKey e xs
+
+-- c)
+partitionH :: (a -> Bool) -> [a] -> [a] -> [a] -> ([a], [a])
+partitionH p l acc1 acc2 =
+    case l of
+        []   -> (acc1, acc2)
+        x:xs -> if p x 
+                then partitionH p xs (acc1++[x]) acc2
+                else partitionH p xs acc1 (acc2++[x])
+    
+partition :: (a -> Bool) -> [a] -> ([a], [a])
+partition p l = partitionH p l [] []
+
+
+
+
+
+
+
+
+
+
+
+
+
+{-# LANGUAGE GADTs #-}
+
+module A2 where
+
+import Prelude
+import A1
+
+data BoolExp where
+    Prop :: Char    -> BoolExp
+    And  :: BoolExp -> BoolExp -> BoolExp
+    Or   :: BoolExp -> BoolExp -> BoolExp
+    Impl :: BoolExp -> BoolExp -> BoolExp
+    Iff  :: BoolExp -> BoolExp -> BoolExp
+    Not  :: BoolExp -> BoolExp
+
+type BValuation = [(Char, Bool)]
+
+-- a)
+printBoolExp :: BoolExp -> String
+printBoolExp f =
+    case f of
+        Prop c   -> [c]
+        And p q  -> "(" ++ printBoolExp p ++ " && " ++ printBoolExp q ++ ")"
+        Or p q   -> "(" ++ printBoolExp p ++ " || " ++ printBoolExp q ++ ")"
+        Impl p q -> "(" ++ printBoolExp p ++ " -> " ++ printBoolExp q ++ ")"
+        Iff p q  -> "(" ++ printBoolExp p ++ " <-> " ++ printBoolExp q ++ ")"
+        Not p    -> "(~" ++ printBoolExp p ++ ")"
+
+instance Show BoolExp where
+    show f = printBoolExp f 
+
+-- b)   
+exists :: Eq a => a -> [a] -> Bool
+exists e l =
+    case l of
+        []   -> False
+        [x]  -> x == e
+        x:xs -> if x == e then True else exists e xs
+
+propNamesH :: BoolExp -> [Char] -> [Char]
+propNamesH f acc =
+    case f of
+        Prop c   -> if  exists c acc then acc else acc ++ [c]
+        And p q  -> let acc' = propNamesH p acc in propNamesH q acc'
+        Or p q   -> let acc' = propNamesH p acc in propNamesH q acc'
+        Impl p q -> let acc' = propNamesH p acc in propNamesH q acc'
+        Iff p q  -> let acc' = propNamesH p acc in propNamesH q acc'
+        Not p    -> propNamesH p acc
+
+propNames :: BoolExp -> [Char]
+propNames p = propNamesH p []
+
+-- c)
+findProp :: BValuation -> Char -> Bool
+findProp v n =
+    case v of
+        []       -> error "no such base proposition found"
+        (i,b):xs -> if i == n then b else findProp xs n
+
+beval :: BValuation -> BoolExp -> Bool
+beval v f =
+    case f of
+        Prop i   -> let b = findProp v i in b
+        And p q  -> beval v p && beval v q
+        Or p q   -> beval v p || beval v q
+        Impl p q -> if beval v p then beval v q else True
+        Iff p q  -> beval v p == beval v q
+        Not p    -> not (beval v p)
